@@ -226,3 +226,6 @@ service-account-key.json
 # FuzzyAI
 .out/
 results/
+
+## Scanning reports
+gl-dast-report.json

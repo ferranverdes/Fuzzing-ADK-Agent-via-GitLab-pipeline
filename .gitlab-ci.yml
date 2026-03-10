@@ -1,7 +1,7 @@
 stages:
   - build
   - deploy
-  - fuzz
+  - fuzzyai_jailbreak_scan
 
 build:
   stage: build
@@ -51,13 +51,23 @@ deploy:
       dotenv: environments/deploy/deploy.env
 
 # Run FuzzyAI fuzzing against the deployed Ollama backend
-fuzz:
+fuzzyai_jailbreak_scan:
   stage: fuzz
   image: python:3.12
   needs:
     - job: deploy # run only after environment & backend are deployed
+  variables:
+    FUZZYAI_TARGET_URL: "$OLLAMA_BACKEND_URL"
+    FUZZYAI_HTTP_METHOD: "POST"
   before_script:
     - cd fuzzyai
     - pip install git+https://github.com/cyberark/FuzzyAI.git@8184b96 # install FuzzyAI CLI, specifically the 8184b96 commit
   script:
     - fuzzyai fuzz -C config.json -e host="$(echo "$OLLAMA_BACKEND_URL" | sed -E 's|https?://||')" # use FuzzyAI with config.json (classifier_model=openai/gpt-4o); requires OPENAI_API_KEY in CI vars
+    - python scripts/fuzzyai_to_gitlab_dast.py results/*/report.json gl-dast-report.json
+  artifacts:
+    when: always
+    paths:
+      - fuzzyai/gl-dast-report.json
+    reports:
+      dast: fuzzyai/gl-dast-report.json
