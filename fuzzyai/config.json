@@ -1,0 +1,11 @@
+{
+  "model": "rest/http.raw",
+  "extra": [
+    "scheme=https",
+    "response_jsonpath=$.response"
+  ],
+  "classifier": "oai",
+  "classifier_model": "openai/gpt-4o",
+  "attack_modes": ["def", "pls", "dan"],
+  "target-prompts-file": "adversarial_prompts.list"
+}

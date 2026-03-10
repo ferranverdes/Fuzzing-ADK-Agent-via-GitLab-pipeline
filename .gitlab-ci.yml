@@ -1,0 +1,63 @@
+stages:
+  - build
+  - deploy
+  - fuzz
+
+build:
+  stage: build
+  image: pulumi/pulumi-python:3.220.0
+  services:
+    - docker:28.5.1-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+  before_script:
+    - cd environments
+    - echo "$GOOGLE_CREDENTIALS_B64" | base64 -d > ./credentials/service-account-key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/credentials/service-account-key.json"
+    - pip install -r requirements.txt
+  script:
+    - cd build
+    - pulumi stack select "$CI_COMMIT_BRANCH" || pulumi stack init "$CI_COMMIT_BRANCH" --non-interactive # temporary safeguard! remove 'stack init' once all env stacks are created
+    - pulumi up --yes
+    - echo "OLLAMA_IMAGE_NAME=$(pulumi stack output ollama_image_name)" > build.env
+    - echo "OLLAMA_IMAGE_DIGEST=$(pulumi stack output ollama_repo_digest)" >> build.env
+    - echo "AGENT_IMAGE_NAME=$(pulumi stack output agent_image_name)" >> build.env
+    - echo "AGENT_IMAGE_DIGEST=$(pulumi stack output agent_repo_digest)" >> build.env
+  artifacts:
+    reports:
+      dotenv: environments/build/build.env
+
+deploy:
+  stage: deploy
+  image: pulumi/pulumi-python:3.220.0
+  needs:
+    - job: build
+  before_script:
+    - cd environments
+    - echo "$GOOGLE_CREDENTIALS_B64" | base64 -d > ./credentials/service-account-key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/credentials/service-account-key.json"
+    - pip install -r requirements.txt
+  script:
+    - cd deploy
+    - pulumi stack select "$CI_COMMIT_BRANCH" || pulumi stack init "$CI_COMMIT_BRANCH" --non-interactive # temporary safeguard! remove 'stack init' once all env stacks are created
+    - pulumi up --yes
+    - echo "GCP_PROJECT=$(pulumi stack output project)" > deploy.env
+    - echo "GCP_REGION=$(pulumi stack output region)" >> deploy.env
+    - echo "OLLAMA_BACKEND_URL=$(pulumi stack output ollama_backend_url)" >> deploy.env
+    - echo "AGENT_URL=$(pulumi stack output agent_url)" >> deploy.env
+  artifacts:
+    reports:
+      dotenv: environments/deploy/deploy.env
+
+# Run FuzzyAI fuzzing against the deployed Ollama backend
+fuzz:
+  stage: fuzz
+  image: python:3.12
+  needs:
+    - job: deploy # run only after environment & backend are deployed
+  before_script:
+    - cd fuzzyai
+    - pip install git+https://github.com/cyberark/FuzzyAI.git@8184b96 # install FuzzyAI CLI, specifically the 8184b96 commit
+  script:
+    - fuzzyai fuzz -C config.json -e host="$(echo "$OLLAMA_BACKEND_URL" | sed -E 's|https?://||')" # use FuzzyAI with config.json (classifier_model=openai/gpt-4o); requires OPENAI_API_KEY in CI vars

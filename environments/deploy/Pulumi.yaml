@@ -1,0 +1,8 @@
+name: adk-agent-infra-deploy
+description: Publish and operate the ADK Agent on Google Cloud Run.
+runtime:
+  name: python
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: gcp-python

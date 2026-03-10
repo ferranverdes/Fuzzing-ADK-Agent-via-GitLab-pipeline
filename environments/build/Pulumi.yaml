@@ -1,0 +1,8 @@
+name: adk-agent-infra-build
+description: Provision and manage the foundational cloud infrastructure for the ADK Agent.
+runtime:
+  name: python
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: gcp-python
