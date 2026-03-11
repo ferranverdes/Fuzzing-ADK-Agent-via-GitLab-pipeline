@@ -116,9 +116,9 @@ def make_primary_identifier(
     original_prompt: str, attack_mode: str, model_name: str
 ) -> Dict[str, str]:
     key = f"fuzzyai:jailbreak:{model_name}:{attack_mode}:{original_prompt}"
-    stable = "FUZZYAI-JAILBREAK-" + slugify(
+    stable = "fuzzyai-jailbreak-" + slugify(
         f"{model_name}-{attack_mode}-{original_prompt}", 120
-    ).upper()
+    )
 
     return {
         "type": "fuzzyai",
@@ -174,7 +174,7 @@ def make_details(
         },
         "harmful_response": {
             "type": "text",
-            "name": "Evidence",
+            "name": "Model response evidence",
             "value": truncate(harmful_response, 12000),
         },
         "moderation_classifier": {
@@ -212,7 +212,7 @@ def make_vulnerability(
     return {
         "id": str(uuid.uuid5(uuid.NAMESPACE_URL, evidence_hash_basis)),
         "category": "dast",
-        "name": f"LLM jailbreak via {attack_mode} prompt injection",
+        "name": f"LLM jailbreak via '{attack_mode}' prompt injection",
         "description": (
             "The tested LLM endpoint produced unsafe or policy-violating content "
             f"after a jailbreak attempt using the '{attack_mode}' attack mode."
@@ -312,7 +312,9 @@ def build_scan_section(target_url: str, http_method: str) -> Dict[str, Any]:
     }
 
 
-def build_report(report: Dict[str, Any], vulnerabilities: List[Dict[str, Any]]) -> Dict[str, Any]:
+def build_report(
+    report: Dict[str, Any], vulnerabilities: List[Dict[str, Any]]
+) -> Dict[str, Any]:
     return {
         "version": "15.2.4",
         "scan": build_scan_section(DEFAULT_TARGET_URL, DEFAULT_HTTP_METHOD),
@@ -351,7 +353,10 @@ def main() -> int:
     gitlab_report = build_report(report, vulnerabilities)
     write_json(output_path, gitlab_report)
 
-    print(f"Wrote {len(vulnerabilities)} vulnerabilities to {output_path}", file=sys.stderr)
+    print(
+        f"Wrote {len(vulnerabilities)} vulnerabilities to {output_path}",
+        file=sys.stderr,
+    )
     return 0
 
 
